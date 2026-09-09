@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>PDF試験構造判定エンジン（当時の動作版）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+pre { background: #f0f0f0; padding: 10px; }
+</style>
+</head>
+<body>
+
+<h2>PDF試験構造判定（当時の仕様どおり）</h2>
+
+<input type="file" id="pdf1">
+<input type="file" id="pdf2">
+<button id="run">判定する</button>
+
+<pre id="out"></pre>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+<script>
+// PDFテキスト抽出（当時のまま）
+async function extractText(file) {
+    const data = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data }).promise;
+    let text = "";
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(it => it.str).join(" ") + " ";
+    }
+
+    return text.replace(/\s+/g, " ");
+}
+
+// 番号抽出（当時の仕様）
+function extractNumbers(text) {
+    const reg = /A-\d+|B-\d+|問\d+/g;
+    return text.match(reg) || [];
+}
+
+// 当時の構造判定ロジック（問題×問題でも採点可能になるやつ）
+function judgeStructure(nums1, nums2) {
+
+    if (nums1.length === 0 || nums2.length === 0) {
+        return "採点不可：番号が抽出できません";
+    }
+
+    if (nums1.length !== nums2.length) {
+        return "採点不可：番号数が一致しません";
+    }
+
+    for (let i = 0; i < nums1.length; i++) {
+        if (nums1[i] !== nums2[i]) {
+            return "採点不可：番号が一致しません";
+        }
+    }
+
+    return "採点可能：構造が一致しています（当時の仕様）";
+}
+
+document.getElementById("run").onclick = async () => {
+    const f1 = document.getElementById("pdf1").files[0];
+    const f2 = document.getElementById("pdf2").files[0];
+
+    if (!f1 || !f2) {
+        document.getElementById("out").textContent = "PDFを2つ選択してください";
+        return;
+    }
+
+    const t1 = await extractText(f1);
+    const t2 = await extractText(f2);
+
+    const nums1 = extractNumbers(t1);
+    const nums2 = extractNumbers(t2);
+
+    const result = judgeStructure(nums1, nums2);
+
+    document.getElementById("out").textContent =
+        `PDF1: ${f1.name}\nPDF2: ${f2.name}\n\n` +
+        `番号(PDF1): ${nums1.join(", ")}\n` +
+        `番号(PDF2): ${nums2.join(", ")}\n\n` +
+        `判定結果: ${result}`;
+};
+</script>
+
+</body>
+</html>
